@@ -11,4 +11,4 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Run build
-        run: echo "Building the project"
+        run: echo "Hello World"
