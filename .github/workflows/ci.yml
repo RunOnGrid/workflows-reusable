@@ -11,15 +11,8 @@ jobs:
       lowercase_image: ${{ steps.convert-image-name.outputs.lowercase_image }}
       commit_hash: ${{ steps.get-commit-hash.outputs.hash }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
       - name: Check Docker installation
         run: docker --version
-
-      - name: Install tools
-        run: |
-          curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.32.0/pack-v0.32.0-linux.tgz" | tar -xz -C /usr/local/bin
 
       - name: Convert repository-name to lowercase
         id: convert-repository-name
@@ -45,6 +38,17 @@ jobs:
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
+      - name: Install tools
+        run: |
+          # Fetch the latest version of `pack` from the GitHub API
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/buildpacks/pack/releases/latest | jq -r '.tag_name')
+
+          # Download and install the latest version on Ubuntu
+          curl -sSL "https://github.com/buildpacks/pack/releases/download/${LATEST_VERSION}/pack-${LATEST_VERSION}-linux.tgz" | sudo tar -C /usr/local/bin/ --no-same-owner -xzv pack
+
+          # Verify installation
+          pack --version
+          
       - name: Build Docker image
         run: |
           pack build gridcloud-image:tmp \
