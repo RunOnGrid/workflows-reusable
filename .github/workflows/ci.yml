@@ -2,22 +2,10 @@ name: Grid CI
 
 on:
   workflow_call:
-    inputs:
-      repository-name:
-        required: true
-        type: string
-      image-name:
-        required: true
-        type: string
-    secrets:
-      ghcr-token:
-        required: true
-
+  
 jobs:
-  build:
+  pipeline:
     runs-on: ubuntu-latest
-
-    permissions: write-all
 
     steps:
       - name: Checkout repository
@@ -26,9 +14,19 @@ jobs:
       - name: Check Docker installation
         run: docker --version
 
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN  }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+
       - name: Install tools
         run: |
-          curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.32.0/pack-v0.32.0-linux.tgz" | tar -xz -C /usr/local/bin
+          # Fetch the latest version of `pack` from the GitHub API
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/buildpacks/pack/releases/latest | jq -r '.tag_name')
+
+          # Download and install the latest version on Ubuntu
+          curl -sSL "https://github.com/buildpacks/pack/releases/download/${LATEST_VERSION}/pack-${LATEST_VERSION}-linux.tgz" | sudo tar -C /usr/local/bin/ --no-same-owner -xzv pack
+
+          # Verify installation
+          pack --version
 
       - name: Get short commit hash
         id: get-commit-hash
@@ -40,22 +38,16 @@ jobs:
           pack build gridcloud-image:tmp \
             --path . \
             --builder paketobuildpacks/builder-jammy-base
-
-      - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.ghcr-token }}" | docker login ghcr.io -u ${{ inputs.repository-name }} --password-stdin
-
-      - name: Verificar autenticación
-        run: docker info | grep "Username"
         
       - name: Convert repository-name to lowercase
         id: convert-repository-name
         run: |
-          echo "lowercase_repo=$(echo ${{ inputs.repository-name }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "lowercase_repo=$(echo  ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Convert image-name to lowercase
         id: convert-image-name
         run: |
-          echo "lowercase_image=$(echo ${{ inputs.image-name }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "lowercase_image=$(echo ${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Tag Docker Image
         run: |
