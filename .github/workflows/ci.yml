@@ -4,7 +4,7 @@ on:
   workflow_call:
   
 jobs:
-  build:
+  pipeline:
     runs-on: ubuntu-latest
 
     steps:
@@ -15,7 +15,7 @@ jobs:
         run: docker --version
 
       - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN  }}" | docker login ghcr.io -u ${{ inputs.repository-name }} --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN  }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
       - name: Install tools
         run: |
