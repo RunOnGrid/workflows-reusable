@@ -9,9 +9,6 @@ on:
       image-name:
         required: true
         type: string
-    secrets:
-      ghcr-token:
-        required: true
 
 jobs:
   build:
@@ -42,7 +39,7 @@ jobs:
             --builder paketobuildpacks/builder-jammy-base
 
       - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.ghcr-token }}" | docker login ghcr.io -u ${{ inputs.repository-name }} --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN  }}" | docker login ghcr.io -u ${{ inputs.repository-name }} --password-stdin
 
       - name: Verificar autenticación
         run: docker info | grep "Username"
