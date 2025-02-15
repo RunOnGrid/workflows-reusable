@@ -17,49 +17,56 @@ jobs:
     permissions: write-all
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Check Docker installation
-        run: docker --version
-
-      - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN  }}" | docker login ghcr.io -u ${{ inputs.repository-name }} --password-stdin
-
-      - name: Install tools
+      - name: Debug GitHub Context Variables
         run: |
-          curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.32.0/pack-v0.32.0-linux.tgz" | tar -xz -C /usr/local/bin
+          echo "🔍 Repository Owner: ${{ github.repository_owner }}"
+          echo "🔍 Repository Name: ${{ github.event.repository.name }}"
+          echo "🔍 Full Repository Path: ${{ github.repository }}"
+          echo "🔍 Actor (Usuario que ejecuta el workflow): ${{ github.actor }}"
 
-      - name: Get short commit hash
-        id: get-commit-hash
-        run: |
-          echo "hash=$(git rev-parse --short=5 HEAD | tr -d '\n')" >> $GITHUB_ENV
+      # - name: Checkout repository
+      #   uses: actions/checkout@v3
+
+      # - name: Check Docker installation
+      #   run: docker --version
+
+      # - name: Log in to GitHub Container Registry
+      #   run: echo "${{ secrets.GITHUB_TOKEN  }}" | docker login ghcr.io -u ${{ inputs.repository-name }} --password-stdin
+
+      # - name: Install tools
+      #   run: |
+      #     curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.32.0/pack-v0.32.0-linux.tgz" | tar -xz -C /usr/local/bin
+
+      # - name: Get short commit hash
+      #   id: get-commit-hash
+      #   run: |
+      #     echo "hash=$(git rev-parse --short=5 HEAD | tr -d '\n')" >> $GITHUB_ENV
       
-      - name: Build Docker image
-        run: |
-          pack build gridcloud-image:tmp \
-            --path . \
-            --builder paketobuildpacks/builder-jammy-base
+      # - name: Build Docker image
+      #   run: |
+      #     pack build gridcloud-image:tmp \
+      #       --path . \
+      #       --builder paketobuildpacks/builder-jammy-base
 
-      - name: Verificar autenticación
-        run: docker info | grep "Username"
+      # - name: Verificar autenticación
+      #   run: docker info | grep "Username"
         
-      - name: Convert repository-name to lowercase
-        id: convert-repository-name
-        run: |
-          echo "lowercase_repo=$(echo ${{ inputs.repository-name }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      # - name: Convert repository-name to lowercase
+      #   id: convert-repository-name
+      #   run: |
+      #     echo "lowercase_repo=$(echo ${{ inputs.repository-name }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      - name: Convert image-name to lowercase
-        id: convert-image-name
-        run: |
-          echo "lowercase_image=$(echo ${{ inputs.image-name }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      # - name: Convert image-name to lowercase
+      #   id: convert-image-name
+      #   run: |
+      #     echo "lowercase_image=$(echo ${{ inputs.image-name }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      - name: Tag Docker Image
-        run: |
-          docker tag gridcloud-image:tmp ghcr.io/${{ env.lowercase_repo }}/${{ env.lowercase_image }}:${{ env.hash }}
-          docker tag gridcloud-image:tmp ghcr.io/${{ env.lowercase_repo }}/${{ env.lowercase_image }}:latest
+      # - name: Tag Docker Image
+      #   run: |
+      #     docker tag gridcloud-image:tmp ghcr.io/${{ env.lowercase_repo }}/${{ env.lowercase_image }}:${{ env.hash }}
+      #     docker tag gridcloud-image:tmp ghcr.io/${{ env.lowercase_repo }}/${{ env.lowercase_image }}:latest
 
-      - name: Push Docker Image
-        run: |
-          docker push ghcr.io/${{ env.lowercase_repo }}/${{ env.lowercase_image }}:${{ env.hash }}
-          docker push ghcr.io/${{ env.lowercase_repo }}/${{ env.lowercase_image }}:latest
+      # - name: Push Docker Image
+      #   run: |
+      #     docker push ghcr.io/${{ env.lowercase_repo }}/${{ env.lowercase_image }}:${{ env.hash }}
+      #     docker push ghcr.io/${{ env.lowercase_repo }}/${{ env.lowercase_image }}:latest
