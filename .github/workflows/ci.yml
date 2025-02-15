@@ -2,15 +2,14 @@ name: Grid CI
 
 on:
   workflow_call:
-  
+
 jobs:
-  build:
+  setup:
     runs-on: ubuntu-latest
-
-    permissions: 
-      contents: read
-      packages: write
-
+    outputs:
+      lowercase_repo: ${{ steps.convert-repository-name.outputs.lowercase_repo }}
+      lowercase_image: ${{ steps.convert-image-name.outputs.lowercase_image }}
+      commit_hash: ${{ steps.get-commit-hash.outputs.hash }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -18,18 +17,34 @@ jobs:
       - name: Check Docker installation
         run: docker --version
 
-      - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN  }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
-
       - name: Install tools
         run: |
           curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.32.0/pack-v0.32.0-linux.tgz" | tar -xz -C /usr/local/bin
 
+      - name: Convert repository-name to lowercase
+        id: convert-repository-name
+        run: echo "lowercase_repo=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Convert image-name to lowercase
+        id: convert-image-name
+        run: echo "lowercase_image=$(echo ${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Get short commit hash
         id: get-commit-hash
-        run: |
-          echo "hash=$(git rev-parse --short=5 HEAD | tr -d '\n')" >> $GITHUB_ENV
-      
+        run: echo "hash=$(git rev-parse --short=5 HEAD)" >> $GITHUB_OUTPUT
+
+  build:
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      image_tag: ${{ steps.tag-image.outputs.image_tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+
       - name: Build Docker image
         run: |
           pack build gridcloud-image:tmp \
@@ -38,23 +53,23 @@ jobs:
 
       - name: Verificar autenticación
         run: docker info | grep "Username"
-        
-      - name: Convert repository-name to lowercase
-        id: convert-repository-name
-        run: |
-          echo "lowercase_repo=$(echo  ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-
-      - name: Convert image-name to lowercase
-        id: convert-image-name
-        run: |
-          echo "lowercase_image=$(echo ${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Tag Docker Image
+        id: tag-image
         run: |
-          docker tag gridcloud-image:tmp ghcr.io/${{ env.lowercase_repo }}/${{ env.lowercase_image }}:${{ env.hash }}
-          docker tag gridcloud-image:tmp ghcr.io/${{ env.lowercase_repo }}/${{ env.lowercase_image }}:latest
+          IMAGE_TAG="ghcr.io/${{ needs.setup.outputs.lowercase_repo }}/${{ needs.setup.outputs.lowercase_image }}:${{ needs.setup.outputs.commit_hash }}"
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          docker tag gridcloud-image:tmp $IMAGE_TAG
+          docker tag gridcloud-image:tmp ghcr.io/${{ needs.setup.outputs.lowercase_repo }}/${{ needs.setup.outputs.lowercase_image }}:latest
+
+  push:
+    runs-on: ubuntu-latest
+    needs: [setup, build]
+    steps:
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
       - name: Push Docker Image
         run: |
-          docker push ghcr.io/${{ env.lowercase_repo }}/${{ env.lowercase_image }}:${{ env.hash }}
-          docker push ghcr.io/${{ env.lowercase_repo }}/${{ env.lowercase_image }}:latest
+          docker push ${{ needs.build.outputs.image_tag }}
+          docker push ghcr.io/${{ needs.setup.outputs.lowercase_repo }}/${{ needs.setup.outputs.lowercase_image }}:latest
